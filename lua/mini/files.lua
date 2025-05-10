@@ -619,6 +619,12 @@ end
 --- manipulation, output of `content.prefix` should not contain `/` character.
 --- Uses |MiniFiles.default_prefix()| by default.
 ---
+--- `content.highlight` is a function which takes file system entry data as input
+--- and returns highlight group name to be used for the entry name. If it returns
+--- `nil`, default highlighting is used (`MiniFilesDirectory` for directories,
+--- `MiniFilesFile` for files). This allows customizing highlighting based on
+--- file properties like extension, name pattern, etc.
+---
 --- `content.sort` describes in which order directory entries should be shown
 --- in directory buffer. Takes as input and returns as output an array of file
 --- system entry data. Note: technically, it can be used to filter and modify
@@ -683,6 +689,8 @@ MiniFiles.config = {
     prefix = nil,
     -- In which order to show file system entries
     sort = nil,
+    -- Custom highlight function for file entries
+    highlight = nil,
   },
 
   -- Module mappings created only inside explorer.
@@ -2256,7 +2264,14 @@ H.buffer_update_directory = function(buf_id, path, opts, is_preview)
     prefix, hl, name = prefix or '', hl or '', H.escape_newline(entry.name)
     table.insert(lines, string.format(line_format, H.path_index[entry.path], prefix, name))
     table.insert(icon_hl, hl)
-    table.insert(name_hl, entry.fs_type == 'directory' and 'MiniFilesDirectory' or 'MiniFilesFile')
+    local name_highlight = 'MiniFilesFile'
+    if entry.fs_type == 'directory' then
+      name_highlight = 'MiniFilesDirectory'
+    elseif opts.content.highlight and vim.is_callable(opts.content.highlight) then
+      local custom_hl = opts.content.highlight(entry)
+      if custom_hl then name_highlight = custom_hl end
+    end
+    table.insert(name_hl, name_highlight)
   end
 
   -- Set lines
